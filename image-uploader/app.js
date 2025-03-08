@@ -1,15 +1,14 @@
 document.addEventListener('DOMContentLoaded', () => {
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
-    const imagePreview = document.getElementById('imagePreview');
     const uploadButton = document.getElementById('uploadButton');
     const listingId = document.getElementById('listingId');
-    const imageNumber = document.getElementById('imageNumber');
     const results = document.getElementById('results');
-    const imageUrl = document.getElementById('imageUrl');
-    const htmlTag = document.getElementById('htmlTag');
-    const resultPreview = document.getElementById('resultPreview');
+    const resultsContainer = document.getElementById('resultsContainer');
     const imageGrid = document.getElementById('imageGrid');
+    const previewContainer = document.getElementById('previewContainer');
+
+    let selectedFiles = [];
 
     // Obsługa przeciągania plików
     dropZone.addEventListener('dragover', (e) => {
@@ -24,9 +23,9 @@ document.addEventListener('DOMContentLoaded', () => {
     dropZone.addEventListener('drop', (e) => {
         e.preventDefault();
         dropZone.classList.remove('drag-over');
-        const file = e.dataTransfer.files[0];
-        if (file && file.type.startsWith('image/')) {
-            handleFileSelect(file);
+        const files = Array.from(e.dataTransfer.files).filter(file => file.type.startsWith('image/'));
+        if (files.length > 0) {
+            handleFilesSelect(files);
         }
     });
 
@@ -35,11 +34,11 @@ document.addEventListener('DOMContentLoaded', () => {
         fileInput.click();
     });
 
-    // Obsługa wyboru pliku
+    // Obsługa wyboru plików
     fileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            handleFileSelect(file);
+        const files = Array.from(e.target.files);
+        if (files.length > 0) {
+            handleFilesSelect(files);
         }
     });
 
@@ -53,52 +52,81 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Obsługa zmiany numeru zdjęcia
-    imageNumber.addEventListener('input', validateForm);
-
     // Funkcja walidacji formularza
     function validateForm() {
-        const isValid = listingId.value && 
-                       imageNumber.value && 
-                       parseInt(imageNumber.value) >= 1 && 
-                       parseInt(imageNumber.value) <= 12 &&
-                       imagePreview.src;
+        const isValid = listingId.value && selectedFiles.length > 0;
         uploadButton.disabled = !isValid;
     }
 
-    // Funkcja obsługi wybranego pliku
-    function handleFileSelect(file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            imagePreview.src = e.target.result;
-            imagePreview.classList.remove('hidden');
-            validateForm();
-        };
-        reader.readAsDataURL(file);
+    // Funkcja obsługi wybranych plików
+    function handleFilesSelect(files) {
+        const remainingSlots = 12 - selectedFiles.length;
+        const filesToAdd = files.slice(0, remainingSlots);
+
+        filesToAdd.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const imageNumber = selectedFiles.length + 1;
+                selectedFiles.push({
+                    file: file,
+                    dataUrl: e.target.result,
+                    number: imageNumber
+                });
+                updatePreview();
+                validateForm();
+            };
+            reader.readAsDataURL(file);
+        });
     }
 
-    // Funkcja przesyłania pliku
-    uploadButton.addEventListener('click', async () => {
-        const file = fileInput.files[0] || dataURLtoFile(imagePreview.src, 'image.jpg');
-        const formData = new FormData();
-        formData.append('image', file);
-        formData.append('listingId', listingId.value);
-        formData.append('imageNumber', imageNumber.value);
+    // Funkcja aktualizacji podglądu
+    function updatePreview() {
+        previewContainer.innerHTML = selectedFiles
+            .map((file, index) => `
+                <div class="preview-item" data-index="${index}">
+                    <img src="${file.dataUrl}" alt="Podgląd ${file.number}">
+                    <span class="image-number">${file.number}</span>
+                    <button class="remove-button" onclick="removeImage(${index})">×</button>
+                </div>
+            `).join('');
+    }
 
+    // Funkcja usuwania zdjęcia
+    window.removeImage = (index) => {
+        selectedFiles.splice(index, 1);
+        // Aktualizacja numerów pozostałych zdjęć
+        selectedFiles.forEach((file, i) => {
+            file.number = i + 1;
+        });
+        updatePreview();
+        validateForm();
+    };
+
+    // Funkcja przesyłania plików
+    uploadButton.addEventListener('click', async () => {
         try {
             uploadButton.disabled = true;
-            const response = await fetch('/upload', {
-                method: 'POST',
-                body: formData
-            });
+            const results = await Promise.all(selectedFiles.map(async (file) => {
+                const formData = new FormData();
+                formData.append('image', file.file);
+                formData.append('listingId', listingId.value);
+                formData.append('imageNumber', file.number);
 
-            const data = await response.json();
-            if (data.success) {
-                showResults(data);
-                loadImages(listingId.value);
-            } else {
-                alert('Błąd podczas przesyłania: ' + data.error);
-            }
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                return await response.json();
+            }));
+
+            showResults(results);
+            loadImages(listingId.value);
+            
+            // Czyszczenie formularza
+            selectedFiles = [];
+            updatePreview();
+            validateForm();
         } catch (error) {
             console.error('Błąd:', error);
             alert('Wystąpił błąd podczas przesyłania');
@@ -108,10 +136,36 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Funkcja pokazująca wyniki
-    function showResults(data) {
-        imageUrl.value = data.imageUrl;
-        htmlTag.value = data.htmlTag;
-        resultPreview.src = data.imageUrl;
+    function showResults(results) {
+        resultsContainer.innerHTML = results.map(result => `
+            <div class="p-4 bg-gray-800 rounded">
+                <h3 class="font-medium mb-2">Zdjęcie ${result.imageNumber}:</h3>
+                <div class="space-y-4">
+                    <div>
+                        <h4 class="text-sm mb-1">Link do zdjęcia:</h4>
+                        <div class="flex items-center space-x-2">
+                            <input type="text" value="${result.imageUrl}" class="flex-1 p-2 rounded dark-input" readonly>
+                            <button onclick="copyToClipboard(this.previousElementSibling)" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
+                                Kopiuj
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="text-sm mb-1">Tag HTML:</h4>
+                        <div class="flex items-center space-x-2">
+                            <input type="text" value="${result.htmlTag}" class="flex-1 p-2 rounded dark-input" readonly>
+                            <button onclick="copyToClipboard(this.previousElementSibling)" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
+                                Kopiuj
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="text-sm mb-1">Podgląd:</h4>
+                        <img src="${result.imageUrl}" alt="Podgląd" class="max-w-full h-48 object-contain rounded border border-gray-600">
+                    </div>
+                </div>
+            </div>
+        `).join('');
         results.classList.remove('hidden');
     }
 
@@ -154,17 +208,4 @@ function copyToClipboard(element) {
     setTimeout(() => {
         button.textContent = originalText;
     }, 1000);
-}
-
-// Funkcja konwertująca Data URL do File
-function dataURLtoFile(dataurl, filename) {
-    const arr = dataurl.split(',');
-    const mime = arr[0].match(/:(.*?);/)[1];
-    const bstr = atob(arr[1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while(n--) {
-        u8arr[n] = bstr.charCodeAt(n);
-    }
-    return new File([u8arr], filename, {type: mime});
 }
