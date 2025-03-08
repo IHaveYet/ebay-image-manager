@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>eBay Image Manager</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .drag-over { background-color: #2d3748; }
+        .image-preview { max-height: 200px; object-fit: contain; }
+        body { 
+            background-color: #1a202c; 
+            color: #e2e8f0; 
+        }
+        .upload-button {
+            background-color: #4fd1c5;
+            color: #1a202c;
+            transition: all 0.3s;
+        }
+        .upload-button:hover {
+            background-color: #38b2ac;
+        }
+        .upload-button:disabled {
+            background-color: #718096;
+            cursor: not-allowed;
+        }
+        .dark-card {
+            background-color: #2d3748;
+            color: #e2e8f0;
+        }
+        .dark-input {
+            background-color: #1a202c;
+            color: #e2e8f0;
+            border-color: #4a5568;
+        }
+        .dark-input:focus {
+            border-color: #4fd1c5;
+            outline: none;
+        }
+        .dark-dropzone {
+            border-color: #4a5568;
+        }
+        .dark-dropzone:hover {
+            border-color: #4fd1c5;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold mb-8 text-gray-100">eBay Image Manager</h1>
+
+        <!-- Upload Form -->
+        <div class="dark-card rounded-lg shadow-lg p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4">Dodaj nowe zdjęcie</h2>
+            
+            <div class="mb-4">
+                <label class="block mb-2">ID Aukcji:</label>
+                <input type="text" id="listingId" class="w-full p-2 rounded dark-input" placeholder="np. AUKCJA123">
+            </div>
+
+            <div class="mb-4">
+                <label class="block mb-2">Numer zdjęcia (1-12):</label>
+                <input type="number" id="imageNumber" min="1" max="12" class="w-full p-2 rounded dark-input" value="1">
+            </div>
+
+            <div class="mb-4">
+                <label class="block mb-2">Zdjęcie:</label>
+                <div id="dropZone" class="dark-dropzone border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors">
+                    <input type="file" id="fileInput" class="hidden" accept="image/*">
+                    <p>Przeciągnij zdjęcie tutaj lub kliknij aby wybrać</p>
+                    <img id="imagePreview" class="image-preview mx-auto mt-4 hidden">
+                </div>
+            </div>
+
+            <button id="uploadButton" class="upload-button px-6 py-2 rounded font-semibold disabled:opacity-50" disabled>
+                Dodaj zdjęcie
+            </button>
+        </div>
+
+        <!-- Results -->
+        <div id="results" class="dark-card rounded-lg shadow-lg p-6 mb-8 hidden">
+            <h2 class="text-xl font-semibold mb-4">Wyniki</h2>
+            <div class="space-y-4">
+                <div class="p-4 bg-gray-800 rounded">
+                    <h3 class="font-medium mb-2">Link do zdjęcia:</h3>
+                    <div class="flex items-center space-x-2">
+                        <input type="text" id="imageUrl" class="flex-1 p-2 rounded dark-input" readonly>
+                        <button onclick="copyToClipboard('imageUrl')" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
+                            Kopiuj
+                        </button>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-gray-800 rounded">
+                    <h3 class="font-medium mb-2">Tag HTML:</h3>
+                    <div class="flex items-center space-x-2">
+                        <input type="text" id="htmlTag" class="flex-1 p-2 rounded dark-input" readonly>
+                        <button onclick="copyToClipboard('htmlTag')" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
+                            Kopiuj
+                        </button>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-gray-800 rounded">
+                    <h3 class="font-medium mb-2">Podgląd:</h3>
+                    <img id="resultPreview" class="max-w-full h-auto rounded border border-gray-600">
+                </div>
+            </div>
+        </div>
+
+        <!-- Image List -->
+        <div id="imageList" class="dark-card rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-semibold mb-4">Lista zdjęć w aukcji</h2>
+            <div id="imageGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Images will be added here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
